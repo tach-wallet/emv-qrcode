@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/dongri/emv-qrcode/crc16"
+	"github.com/tach-wallet/emv-qrcode/crc16"
 )
 
 // const ...
