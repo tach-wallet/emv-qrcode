@@ -15,27 +15,29 @@ import (
 
 // const ...
 const (
-	IDPayloadFormatIndicator               ID = "00" // (M) Payload Format Indicator
-	IDPointOfInitiationMethod              ID = "01" // (O) Point of Initiation Method
-	IDMerchantAccountInformationRangeStart ID = "02" // (M) 2-51 Merchant Account Information
-	IDMerchantAccountInformationRangeEnd   ID = "51" // (M) 2-51 Merchant Account Information
-	IDMerchantCategoryCode                 ID = "52" // (M) Merchant Category Code
-	IDTransactionCurrency                  ID = "53" // (M) Transaction Currency
-	IDTransactionAmount                    ID = "54" // (C) Transaction Amount
-	IDTipOrConvenienceIndicator            ID = "55" // (O) Tip or Convenience Indicator
-	IDValueOfConvenienceFeeFixed           ID = "56" // (C) Value of Convenience Fee Fixed
-	IDValueOfConvenienceFeePercentage      ID = "57" // (C) Value of Convenience Fee Percentage
-	IDCountryCode                          ID = "58" // (M) Country Code
-	IDMerchantName                         ID = "59" // (M) Merchant Name
-	IDMerchantCity                         ID = "60" // (M) Merchant City
-	IDPostalCode                           ID = "61" // (O) Postal Code
-	IDAdditionalDataFieldTemplate          ID = "62" // (O) Additional Data Field Template
-	IDCRC                                  ID = "63" // (M) CRC
-	IDMerchantInformationLanguageTemplate  ID = "64" // (O) Merchant Information— Language Template
-	IDRFUForEMVCoRangeStart                ID = "65" // (O) 65-79 RFU for EMVCo
-	IDRFUForEMVCoRangeEnd                  ID = "79" // (O) 65-79 RFU for EMVCo
-	IDUnreservedTemplatesRangeStart        ID = "80" // (O) 80-99 Unreserved Templates
-	IDUnreservedTemplatesRangeEnd          ID = "99" // (O) 80-99 Unreserved Templates
+	IDPayloadFormatIndicator                   ID = "00" // (M) Payload Format Indicator
+	IDPointOfInitiationMethod                  ID = "01" // (O) Point of Initiation Method
+	IDMerchantAccountInformationRangeStart     ID = "02" // (M) 2-25 Merchant Account Information plain
+	IDMerchantAccountInformationPlainRangeStop ID = "25"
+	IDMerchantAccountInformationObjRangeStart  ID = "26"
+	IDMerchantAccountInformationRangeEnd       ID = "51" // (M) 2-51 Merchant Account Information
+	IDMerchantCategoryCode                     ID = "52" // (M) Merchant Category Code
+	IDTransactionCurrency                      ID = "53" // (M) Transaction Currency
+	IDTransactionAmount                        ID = "54" // (C) Transaction Amount
+	IDTipOrConvenienceIndicator                ID = "55" // (O) Tip or Convenience Indicator
+	IDValueOfConvenienceFeeFixed               ID = "56" // (C) Value of Convenience Fee Fixed
+	IDValueOfConvenienceFeePercentage          ID = "57" // (C) Value of Convenience Fee Percentage
+	IDCountryCode                              ID = "58" // (M) Country Code
+	IDMerchantName                             ID = "59" // (M) Merchant Name
+	IDMerchantCity                             ID = "60" // (M) Merchant City
+	IDPostalCode                               ID = "61" // (O) Postal Code
+	IDAdditionalDataFieldTemplate              ID = "62" // (O) Additional Data Field Template
+	IDCRC                                      ID = "63" // (M) CRC
+	IDMerchantInformationLanguageTemplate      ID = "64" // (O) Merchant Information— Language Template
+	IDRFUForEMVCoRangeStart                    ID = "65" // (O) 65-79 RFU for EMVCo
+	IDRFUForEMVCoRangeEnd                      ID = "79" // (O) 65-79 RFU for EMVCo
+	IDUnreservedTemplatesRangeStart            ID = "80" // (O) 80-99 Unreserved Templates
+	IDUnreservedTemplatesRangeEnd              ID = "99" // (O) 80-99 Unreserved Templates
 )
 
 // Data Object ID Allocation in Merchant Account Information Template ...
@@ -90,6 +92,7 @@ type EMVQR struct {
 	PayloadFormatIndicator              TLV                                  `json:"Payload Format Indicator"`
 	PointOfInitiationMethod             TLV                                  `json:"Point of Initiation Method"`
 	MerchantAccountInformation          map[ID]MerchantAccountInformationTLV `json:"Merchant Account Information"`
+	MerchantAccountInformationPlain     []TLV                                `json:"Merchant Account Information Plain"`
 	MerchantCategoryCode                TLV                                  `json:"Merchant Category Code"`
 	TransactionCurrency                 TLV                                  `json:"Transaction Currency"`
 	TransactionAmount                   TLV                                  `json:"Transaction Amount"`
@@ -223,7 +226,10 @@ func (tlv TLV) DataWithType(dataType DataType, indent string) string {
 		rep := regexp.MustCompile("(.{2})")
 		hexStr := hex.EncodeToString([]byte(tlv.Value))
 		hexArray := rep.FindAllString(hexStr, -1)
-		return indent + tlv.Tag.String() + " " + tlv.Length + " " + strings.Join(hexArray, " ") + "\n"
+		return indent + tlv.Tag.String() + " " + tlv.Length + " " + strings.Join(
+			hexArray,
+			" ",
+		) + "\n"
 	}
 	if dataType == DataTypeRaw {
 		return indent + tlv.Tag.String() + " " + tlv.Length + " " + tlv.Value + "\n"
@@ -438,6 +444,15 @@ func (c *EMVQR) AddRFUforEMVCo(id ID, v string) {
 		Value:  v,
 	}
 	c.RFUforEMVCo = append(c.RFUforEMVCo, tlv)
+}
+
+func (c *EMVQR) AddMerchantInformationPlain(id ID, v string) {
+	tlv := TLV{
+		Tag:    id,
+		Length: l(v),
+		Value:  v,
+	}
+	c.MerchantAccountInformationPlain = append(c.MerchantAccountInformationPlain, tlv)
 }
 
 // AddUnreservedTemplates ...
@@ -737,7 +752,10 @@ func (s *MerchantInformationLanguageTemplate) String() string {
 }
 
 // DataWithType ...
-func (s *MerchantInformationLanguageTemplate) DataWithType(dataType DataType, indent string) string {
+func (s *MerchantInformationLanguageTemplate) DataWithType(
+	dataType DataType,
+	indent string,
+) string {
 	if s == nil {
 		return ""
 	}
@@ -789,7 +807,6 @@ func (s *UnreservedTemplate) AddContextSpecificData(id ID, v string) {
 		Value:  v,
 	}
 	s.ContextSpecificData = append(s.ContextSpecificData, tlv)
-
 }
 
 func (s *UnreservedTemplate) String() string {
@@ -900,8 +917,25 @@ func ParseEMVQR(payload string) (*EMVQR, error) {
 				within bool
 				err    error
 			)
+
+			// merchant account information (plain)
+			within, err = id.Between(
+				IDMerchantAccountInformationRangeStart,
+				IDMerchantAccountInformationPlainRangeStop,
+			)
+			if err != nil {
+				return nil, err
+			}
+			if within {
+				emvqr.AddMerchantInformationPlain(id, value)
+				continue
+			}
+
 			// Merchant Account Information
-			within, err = id.Between(IDMerchantAccountInformationRangeStart, IDMerchantAccountInformationRangeEnd)
+			within, err = id.Between(
+				IDMerchantAccountInformationObjRangeStart,
+				IDMerchantAccountInformationRangeEnd,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -969,8 +1003,12 @@ func (c *EMVQR) Validate() error {
 	}
 	// check validate
 	if c.PointOfInitiationMethod.Value != "" {
-		if c.PointOfInitiationMethod.Value != PointOfInitiationMethodStatic && c.PointOfInitiationMethod.Value != PointOfInitiationMethodDynamic {
-			return fmt.Errorf("PointOfInitiationMethod should be \"11\" or \"12\", PointOfInitiationMethod: %s", c)
+		if c.PointOfInitiationMethod.Value != PointOfInitiationMethodStatic &&
+			c.PointOfInitiationMethod.Value != PointOfInitiationMethodDynamic {
+			return fmt.Errorf(
+				"PointOfInitiationMethod should be \"11\" or \"12\", PointOfInitiationMethod: %s",
+				c,
+			)
 		}
 	}
 	if c.MerchantInformationLanguageTemplate != nil {
@@ -1013,7 +1051,10 @@ func ParseAdditionalDataFieldTemplate(payload string) (*AdditionalDataFieldTempl
 				err    error
 			)
 			// Payment System Specific
-			within, err = id.Between(AdditionalIDPaymentSystemSpecificTemplatesRangeStart, AdditionalIDPaymentSystemSpecificTemplatesRangeEnd)
+			within, err = id.Between(
+				AdditionalIDPaymentSystemSpecificTemplatesRangeStart,
+				AdditionalIDPaymentSystemSpecificTemplatesRangeEnd,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -1022,7 +1063,10 @@ func ParseAdditionalDataFieldTemplate(payload string) (*AdditionalDataFieldTempl
 				continue
 			}
 			// RFU for EMVCo
-			within, err = id.Between(AdditionalIDRFUforEMVCoRangeStart, AdditionalIDRFUforEMVCoRangeEnd)
+			within, err = id.Between(
+				AdditionalIDRFUforEMVCoRangeStart,
+				AdditionalIDRFUforEMVCoRangeEnd,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -1053,7 +1097,10 @@ func ParseMerchantAccountInformation(value string) (*MerchantAccountInformation,
 				within bool
 				err    error
 			)
-			within, err = id.Between(MerchantAccountInformationIDPaymentNetworkSpecificStart, MerchantAccountInformationIDPaymentNetworkSpecificEnd)
+			within, err = id.Between(
+				MerchantAccountInformationIDPaymentNetworkSpecificStart,
+				MerchantAccountInformationIDPaymentNetworkSpecificEnd,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -1070,7 +1117,9 @@ func ParseMerchantAccountInformation(value string) (*MerchantAccountInformation,
 }
 
 // ParseMerchantInformationLanguageTemplate ...
-func ParseMerchantInformationLanguageTemplate(value string) (*MerchantInformationLanguageTemplate, error) {
+func ParseMerchantInformationLanguageTemplate(
+	value string,
+) (*MerchantInformationLanguageTemplate, error) {
 	p := NewParser(value)
 	merchantInformationLanguageTemplate := &MerchantInformationLanguageTemplate{}
 	for p.Next() {
@@ -1089,7 +1138,10 @@ func ParseMerchantInformationLanguageTemplate(value string) (*MerchantInformatio
 				err    error
 			)
 			// RFU for EMVCo
-			within, err = id.Between(MerchantInformationIDRFUforEMVCoRangeStart, MerchantInformationIDRFUforEMVCoRangeEnd)
+			within, err = id.Between(
+				MerchantInformationIDRFUforEMVCoRangeStart,
+				MerchantInformationIDRFUforEMVCoRangeEnd,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -1120,7 +1172,10 @@ func ParseUnreservedTemplate(value string) (*UnreservedTemplate, error) {
 				within bool
 				err    error
 			)
-			within, err = id.Between(UnreservedTemplateIDContextSpecificDataStart, UnreservedTemplateIDContextSpecificDataEnd)
+			within, err = id.Between(
+				UnreservedTemplateIDContextSpecificDataStart,
+				UnreservedTemplateIDContextSpecificDataEnd,
+			)
 			if err != nil {
 				return nil, err
 			}
